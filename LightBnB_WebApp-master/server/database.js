@@ -118,9 +118,22 @@ exports.addUser = addUser;
  * @param {string} guest_id The id of the user.
  * @return {Promise<[{}]>} A promise to the reservations.
  */
+
+// const getAllReservations = function(guest_id, limit = 10) {
+//   return getAllProperties(null, 2);
+// }
+
 const getAllReservations = function(guest_id, limit = 10) {
-  return getAllProperties(null, 2);
-}
+  return pool //return the whole promise to enable the .then fxn
+    .query(`SELECT * FROM reservations WHERE guest_id = $1 LIMIT $2`, [guest_id, limit])
+    .then((result) => {
+      //console.log(result.rows.length);
+      return result.rows; //return when the promise is resolved to enable the value inside .then
+    })
+    .catch((err) => {
+      console.log(err.message);
+    });
+};
 exports.getAllReservations = getAllReservations;
 
 /// Properties
