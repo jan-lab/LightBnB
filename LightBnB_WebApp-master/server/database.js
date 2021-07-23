@@ -35,7 +35,6 @@ const getUserWithEmail = (email) => {
 exports.getUserWithEmail = getUserWithEmail;
 
 
-
 /**
  * Get a single user from the database given their id.
  * @param {string} id The id of the user.
