@@ -1,5 +1,5 @@
-const properties = require('./json/properties.json');
-const users = require('./json/users.json');
+// const properties = require('./json/properties.json');
+// const users = require('./json/users.json');
 
 const { Pool } = require('pg');
 
@@ -39,12 +39,10 @@ const getUserWithEmail = (email) => {
       FROM users
       WHERE email = $1`, [email])
     .then((result) => {
-      console.log(email);
-      console.log(result.rows[0]);
       return result.rows[0]; //return when the promise is resolved to enable the value inside .then
     })
     .catch((err) => {
-      console.log(err.message);
+      console.error(err.message);
       return null;
     });
 };
@@ -65,15 +63,15 @@ exports.getUserWithEmail = getUserWithEmail;
 
 const getUserWithId = (id) => {
   return pool //return the whole promise to enable the .then fxn
-    .query(`SELECT *
+    .query(`
+      SELECT *
       FROM users
       WHERE id = $1`, [id])
     .then((result) => {
-      console.log(result.rows);
       return result.rows[0]; //return when the promise is resolved to enable the value inside .then
     })
     .catch((err) => {
-      console.log(err.message);
+      console.error(err.message);
       return null;
     });
 };
@@ -100,11 +98,10 @@ const addUser = (user) => {
       VALUES ($1, $2, $3)
       RETURNING *`, [user.name, user.email, user.password])
     .then((result) => {
-      console.log(result.rows[0]);
       return result.rows[0]; //return when the promise is resolved to enable the value inside .then
     })
     .catch((err) => {
-      console.log(err.message);
+      console.error(err.message);
       return null;
     });
 };
@@ -125,13 +122,16 @@ exports.addUser = addUser;
 
 const getAllReservations = function(guest_id, limit = 10) {
   return pool //return the whole promise to enable the .then fxn
-    .query(`SELECT * FROM reservations WHERE guest_id = $1 LIMIT $2`, [guest_id, limit])
+    .query(`SELECT * 
+            FROM reservations r
+            JOIN properties p ON r.property_id = p.id
+            JOIN property_reviews pr ON r.id = pr.reservation_id
+            WHERE r.guest_id = $1 LIMIT $2`, [guest_id, limit])
     .then((result) => {
-      //console.log(result.rows.length);
       return result.rows; //return when the promise is resolved to enable the value inside .then
     })
     .catch((err) => {
-      console.log(err.message);
+      console.error(err.message);
     });
 };
 exports.getAllReservations = getAllReservations;
@@ -153,18 +153,78 @@ exports.getAllReservations = getAllReservations;
 //   return Promise.resolve(limitedProperties);
 // }
 
-const getAllProperties = (options, limit = 10) => {
-  // pool
-  return pool //return the whole promise to enable the .then fxn
-    .query(`SELECT * FROM properties LIMIT $1`, [limit])
-    .then((result) => {
-      console.log(result.rows.length);
-      return result.rows; //return when the promise is resolved to enable the value inside .then
-    })
-    .catch((err) => {
-      console.log(err.message);
-    });
+// const getAllProperties = (options, limit = 10) => {
+//   // pool
+//   return pool //return the whole promise to enable the .then fxn
+//     .query(`SELECT * FROM properties LIMIT $1`, [limit])
+//     .then((result) => {
+//       console.log(result.rows.length);
+//       return result.rows; //return when the promise is resolved to enable the value inside .then
+//     })
+//     .catch((err) => {
+//       console.log(err.message);
+//     });
+// };
+
+const getAllProperties = function (options, limit = 10) {
+  // 1
+  const queryParams = [];
+  // 2
+  let queryString = `
+  SELECT properties.*, avg(property_reviews.rating) as average_rating
+  FROM properties
+  JOIN property_reviews ON properties.id = property_id
+  WHERE 1 = 1
+  `;
+
+  // let queryString = `
+  // SELECT properties.*, avg(property_reviews.rating) as average_rating
+  // FROM properties
+  // JOIN property_reviews ON properties.id = property_id
+  // `;
+  // let value = 'WHERE';
+
+  // 3
+  if (options.city) {
+    queryParams.push(`${options.city}`);
+    queryString += `AND city LIKE $${queryParams.length} `;
+  }
+  
+
+  if (options.minimum_price_per_night && options.maximum_price_per_night) {
+    queryParams.push(`${options.minimum_price_per_night}`);
+    queryParams.push(`${options.maximum_price_per_night}`);
+    queryString += `AND cost_per_night/100 BETWEEN $${queryParams.length - 1} AND $${queryParams.length} `;
+  } else if (options.minimum_price_per_night) {
+    queryParams.push(`${options.minimum_price_per_night}`);
+    queryString += `AND cost_per_night/100 >= $${queryParams.length} `;
+  } else if (options.maximum_price_per_night) {
+    queryParams.push(`${options.maximum_price_per_night}`);
+    queryString += `AND cost_per_night/100 <= $${queryParams.length} `;
+  }
+
+
+  if (options.minimum_rating) {
+    queryParams.push(`${options.minimum_rating}`);
+    queryString += `AND rating >= $${queryParams.length} `;
+  }
+
+
+  // 4
+  queryParams.push(limit);
+  queryString += `
+  GROUP BY properties.id
+  ORDER BY cost_per_night
+  LIMIT $${queryParams.length};
+  `;
+
+  // 5
+  console.log(queryString, queryParams);
+
+  // 6
+  return pool.query(queryString, queryParams).then((res) => res.rows);
 };
+
 exports.getAllProperties = getAllProperties;
 
 
@@ -173,10 +233,31 @@ exports.getAllProperties = getAllProperties;
  * @param {{}} property An object containing all of the property details.
  * @return {Promise<{}>} A promise to the property.
  */
+
+// const addProperty = function(property) {
+//   const propertyId = Object.keys(properties).length + 1;
+//   property.id = propertyId;
+//   properties[propertyId] = property;
+//   return Promise.resolve(property);
+// }
+
 const addProperty = function(property) {
-  const propertyId = Object.keys(properties).length + 1;
-  property.id = propertyId;
-  properties[propertyId] = property;
-  return Promise.resolve(property);
-}
+  return pool //return the whole promise to enable the .then fxn
+    .query(
+      `INSERT INTO properties (
+        title, description, owner_id, cover_photo_url, thumbnail_photo_url, cost_per_night, parking_spaces, number_of_bathrooms, number_of_bedrooms, province, city, country, street, post_code) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *`, [property.title, property.description, property.owner_id, property.cover_photo_url, property.thumbnail_photo_url, property.cost_per_night, property.parking_spaces, property.number_of_bathrooms, property.number_of_bedrooms, property.province, property.city, property.country, property.street, property.post_code])
+    .then((result) => {
+      console.log(result.rows[0]);
+      return result.rows[0]; //return when the promise is resolved to enable the value inside .then
+    })
+    .catch((err) => {
+      console.log(err.message);
+      return null;
+    });
+};
+
+
+
 exports.addProperty = addProperty;
