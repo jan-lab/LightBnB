@@ -1,5 +1,4 @@
-// const properties = require('./json/properties.json');
-// const users = require('./json/users.json');
+// connect to the database
 
 const { Pool } = require('pg');
 
@@ -11,7 +10,6 @@ const pool = new Pool({
 });
 
 
-
 /// Users
 
 /**
@@ -19,19 +17,6 @@ const pool = new Pool({
  * @param {String} email The email of the user.
  * @return {Promise<{}>} A promise to the user.
  */
-
-// const getUserWithEmail = function(email) {
-//   let user;
-//   for (const userId in users) {
-//     user = users[userId];
-//     if (user.email.toLowerCase() === email.toLowerCase()) {
-//       break;
-//     } else {
-//       user = null;
-//     }
-//   }
-//   return Promise.resolve(user);
-// }
 
 const getUserWithEmail = (email) => {
   return pool //return the whole promise to enable the .then fxn
@@ -57,18 +42,14 @@ exports.getUserWithEmail = getUserWithEmail;
  * @return {Promise<{}>} A promise to the user.
  */
 
-// const getUserWithId = function(id) {
-//   return Promise.resolve(users[id]);
-// }
-
 const getUserWithId = (id) => {
-  return pool //return the whole promise to enable the .then fxn
+  return pool
     .query(`
       SELECT *
       FROM users
       WHERE id = $1`, [id])
     .then((result) => {
-      return result.rows[0]; //return when the promise is resolved to enable the value inside .then
+      return result.rows[0];
     })
     .catch((err) => {
       console.error(err.message);
@@ -84,21 +65,15 @@ exports.getUserWithId = getUserWithId;
  * @return {Promise<{}>} A promise to the user.
  */
 
-// const addUser =  function(user) {
-//   const userId = Object.keys(users).length + 1;
-//   user.id = userId;
-//   users[userId] = user;
-//   return Promise.resolve(user);
-// }
 
 const addUser = (user) => {
-  return pool //return the whole promise to enable the .then fxn
+  return pool
     .query(
       `INSERT INTO users (name, email, password)
       VALUES ($1, $2, $3)
       RETURNING *`, [user.name, user.email, user.password])
     .then((result) => {
-      return result.rows[0]; //return when the promise is resolved to enable the value inside .then
+      return result.rows[0];
     })
     .catch((err) => {
       console.error(err.message);
@@ -116,19 +91,16 @@ exports.addUser = addUser;
  * @return {Promise<[{}]>} A promise to the reservations.
  */
 
-// const getAllReservations = function(guest_id, limit = 10) {
-//   return getAllProperties(null, 2);
-// }
 
 const getAllReservations = function(guest_id, limit = 10) {
-  return pool //return the whole promise to enable the .then fxn
+  return pool
     .query(`SELECT * 
             FROM reservations r
             JOIN properties p ON r.property_id = p.id
             JOIN property_reviews pr ON r.id = pr.reservation_id
             WHERE r.guest_id = $1 LIMIT $2`, [guest_id, limit])
     .then((result) => {
-      return result.rows; //return when the promise is resolved to enable the value inside .then
+      return result.rows;
     })
     .catch((err) => {
       console.error(err.message);
@@ -145,26 +117,6 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 
-// const getAllProperties = function(options, limit = 10) {
-//   const limitedProperties = {};
-//   for (let i = 1; i <= limit; i++) {
-//     limitedProperties[i] = properties[i];
-//   }
-//   return Promise.resolve(limitedProperties);
-// }
-
-// const getAllProperties = (options, limit = 10) => {
-//   // pool
-//   return pool //return the whole promise to enable the .then fxn
-//     .query(`SELECT * FROM properties LIMIT $1`, [limit])
-//     .then((result) => {
-//       console.log(result.rows.length);
-//       return result.rows; //return when the promise is resolved to enable the value inside .then
-//     })
-//     .catch((err) => {
-//       console.log(err.message);
-//     });
-// };
 
 const getAllProperties = function (options, limit = 10) {
   // 1
@@ -177,11 +129,7 @@ const getAllProperties = function (options, limit = 10) {
   WHERE 1 = 1
   `;
 
-  // let queryString = `
-  // SELECT properties.*, avg(property_reviews.rating) as average_rating
-  // FROM properties
-  // JOIN property_reviews ON properties.id = property_id
-  // `;
+  // Alternative: create a variable for 'WHERE', use it when appending template literal to queryString at the end of each IF statement and then assign the value 'AND' to the variable.
   // let value = 'WHERE';
 
   // 3
@@ -234,26 +182,19 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
 
-// const addProperty = function(property) {
-//   const propertyId = Object.keys(properties).length + 1;
-//   property.id = propertyId;
-//   properties[propertyId] = property;
-//   return Promise.resolve(property);
-// }
 
 const addProperty = function(property) {
-  return pool //return the whole promise to enable the .then fxn
+  return pool
     .query(
       `INSERT INTO properties (
         title, description, owner_id, cover_photo_url, thumbnail_photo_url, cost_per_night, parking_spaces, number_of_bathrooms, number_of_bedrooms, province, city, country, street, post_code) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`, [property.title, property.description, property.owner_id, property.cover_photo_url, property.thumbnail_photo_url, property.cost_per_night, property.parking_spaces, property.number_of_bathrooms, property.number_of_bedrooms, property.province, property.city, property.country, property.street, property.post_code])
     .then((result) => {
-      console.log(result.rows[0]);
-      return result.rows[0]; //return when the promise is resolved to enable the value inside .then
+      return result.rows[0];
     })
     .catch((err) => {
-      console.log(err.message);
+      console.error(err.message);
       return null;
     });
 };
